@@ -88,7 +88,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4">
                         <a 
-                          href={`http://localhost:5000${booking.document_url}`} 
+                          href={booking.document_url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           className="inline-flex items-center text-sm text-emerald-600 hover:text-emerald-700 hover:underline bg-emerald-50 px-3 py-1.5 rounded-lg"

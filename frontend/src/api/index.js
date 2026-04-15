@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  // Gunakan env URL jika ada, jika tidak gunakan localhost untuk fallback lokal
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
 // Otomatis menyisipkan token JWT ke setiap request

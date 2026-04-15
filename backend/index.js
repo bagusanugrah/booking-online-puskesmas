@@ -4,41 +4,37 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const multerS3 = require('multer-s3');
+const fs = require('fs');
+const path = require('path');
+// Kita panggil perintah PutObjectCommand untuk menembak langsung ke S3
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Patient, Booking } = require('./models');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Konfigurasi S3 Client untuk AWS atau Google Cloud Storage Interoperability
-const s3Config = {
+// Konfigurasi S3 Client murni (tanpa embel-embel checksum yang bikin error)
+const s3 = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-};
-
-// Gunakan S3_ENDPOINT khusus jika kamu memakai Google Cloud Storage
-if (process.env.S3_ENDPOINT) {
-  s3Config.endpoint = process.env.S3_ENDPOINT;
-}
-
-const s3 = new S3Client(s3Config);
-
-// Konfigurasi penyimpanan Multer langsung ke S3
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    acl: 'public-read', // Mengatur agar file bisa diakses publik (opsional)
-    key: function (req, file, cb) {
-      cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'));
-    }
-  })
+  },
+  endpoint: process.env.S3_ENDPOINT || 'https://storage.googleapis.com',
+  forcePathStyle: true
 });
+
+// Kembalikan Multer ke mode Transit Lokal sementara
+const uploadDir = './uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'))
+});
+const upload = multer({ storage });
 
 // 1. Endpoint Register
 app.post('/api/register', async (req, res) => {
@@ -86,14 +82,34 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// 3. Endpoint Booking (Simpan URL dari S3)
+// 3. Endpoint Booking (Transit Lokal -> Tembak S3 -> Hapus Lokal)
 app.post('/api/bookings', verifyToken, upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'File dokumen wajib diunggah' });
     
     const { booking_date } = req.body;
-    // URL file didapatkan dari balasan server S3
-    const document_url = req.file.location; 
+    const fileName = req.file.filename;
+    const localFilePath = req.file.path;
+
+    // Baca file utuh dari hardisk
+    const fileContent = fs.readFileSync(localFilePath);
+
+    // Siapkan roket untuk menembak ke Google Cloud
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileName,
+      Body: fileContent,
+      ContentType: req.file.mimetype // Pastikan format terbaca (PDF/JPG)
+    };
+
+    // Eksekusi tembakan ke awan
+    await s3.send(new PutObjectCommand(uploadParams));
+
+    // Bersihkan jejak (hapus file dari folder lokal)
+    fs.unlinkSync(localFilePath);
+    
+    // Rangkai URL publik dari Google Cloud
+    const document_url = `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_NAME}/${fileName}`;
     
     const newBooking = await Booking.create({
       patient_id: req.user.id,
@@ -105,7 +121,11 @@ app.post('/api/bookings', verifyToken, upload.single('document'), async (req, re
     res.status(201).json({ message: 'Booking berhasil dibuat', booking: newBooking });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Gagal membuat booking' });
+    // Jika gagal, tetap bersihkan file lokal yang nyangkut
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Gagal membuat booking ke awan' });
   }
 });
 
@@ -149,17 +169,14 @@ app.delete('/api/bookings/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Jadwal tidak ditemukan atau sudah diproses' });
     }
 
-    // Ekstraksi nama file dari URL untuk menghapus file di S3
     const urlParts = booking.document_url.split('/');
     const fileKey = urlParts[urlParts.length - 1];
 
-    const deleteParams = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: fileKey,
-    };
-
     try {
-      await s3.send(new DeleteObjectCommand(deleteParams));
+      await s3.send(new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: fileKey,
+      }));
     } catch (s3Error) {
       console.error("Gagal menghapus file dari S3", s3Error);
     }

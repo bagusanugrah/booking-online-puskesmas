@@ -3,9 +3,22 @@ services:
     build: ./backend
     ports:
       - "5000:5000"
-    # Kita suruh Docker membaca file .env yang ada di folder backend
-    env_file:
-      - ./backend/.env 
+    # Menyuntikkan variabel langsung ke jantung kontainer
+    environment:
+      - DB_PORT=3306
+      - DB_HOST=10.xxx.xx.x  # PENTING: Ganti dengan IP Private Cloud SQL kamu!
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=puskesmas_db
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - JWT_SECRET=rahasia_puskesmas_super_aman
+      # Kredensial Cloud/S3 kamu:
+      - AWS_REGION=asia-southeast2
+      - AWS_ACCESS_KEY_ID=kunci_gcp_kamu
+      - AWS_SECRET_ACCESS_KEY=rahasia_gcp_kamu
+      - S3_BUCKET_NAME=nama_bucket_kamu
+      - S3_ENDPOINT=https://storage.googleapis.com
 
   frontend:
     build: ./frontend

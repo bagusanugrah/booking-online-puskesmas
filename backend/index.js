@@ -287,7 +287,11 @@ app.delete('/api/reports/:id', verifyToken, async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server Backend berjalan di http://localhost:${PORT}`);
+db.sequelize.sync({ alter: true }).then(() => {
+  console.log("Database berhasil disinkronkan tanpa config.js!");
+  app.listen(5000, () => {
+    console.log("Server berjalan di port 5000");
+  });
+}).catch(err => {
+  console.error("Gagal konek ke database:", err);
 });

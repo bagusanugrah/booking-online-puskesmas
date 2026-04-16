@@ -9,6 +9,7 @@ const path = require('path');
 // Kita panggil perintah PutObjectCommand untuk menembak langsung ke S3
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Patient, Booking, Disease, EnvironmentReport } = require('./models');
+const db = require('./models');
 
 const app = express();
 app.use(cors());

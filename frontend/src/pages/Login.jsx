@@ -78,7 +78,7 @@ export default function Login() {
             />
           </div>
           
-          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition duration-200">
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition duration-200">
             {isLogin ? 'Masuk' : 'Daftar Sekarang'}
           </button>
         </form>

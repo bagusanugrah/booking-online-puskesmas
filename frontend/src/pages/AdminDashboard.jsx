@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, FileText, LogOut, CheckCircle, XCircle, Activity, Calendar } from 'lucide-react';
 import api from '../api';
+import DiseaseSection from '../components/DiseaseSection';
+import ReportSection from '../components/ReportSection';
 
 export default function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
@@ -129,6 +131,9 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+      {/* Tambahkan tepat di bawah tabel admin booking */}
+      <DiseaseSection role="admin" />
+      <ReportSection role="admin" />
     </div>
   );
 }

@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 // Kita panggil perintah PutObjectCommand untuk menembak langsung ke S3
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { Patient, Booking } = require('./models');
+const { Patient, Booking, Disease, EnvironmentReport } = require('./models');
 
 const app = express();
 app.use(cors());
@@ -185,6 +185,105 @@ app.delete('/api/bookings/:id', verifyToken, async (req, res) => {
     res.json({ message: 'Jadwal berhasil dibatalkan' });
   } catch (error) {
     res.status(500).json({ error: 'Gagal membatalkan jadwal' });
+  }
+});
+
+// --- FITUR MONITORING PENYAKIT ---
+
+// Endpoint Lihat Tren Penyakit
+app.get('/api/diseases', verifyToken, async (req, res) => {
+  try {
+    const diseases = await Disease.findAll();
+    res.json(diseases);
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil data penyakit' });
+  }
+});
+
+// Endpoint Tambah Penyakit (Khusus Admin)
+app.post('/api/diseases', verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Akses ditolak' });
+    const { name, cases, location } = req.body;
+    const newDisease = await Disease.create({ name, cases, location });
+    res.status(201).json({ message: 'Data penyakit ditambahkan', disease: newDisease });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal menambah data penyakit' });
+  }
+});
+
+// Endpoint Hapus Penyakit (Khusus Admin)
+app.delete('/api/diseases/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Akses ditolak' });
+    await Disease.destroy({ where: { id: req.params.id } });
+    res.json({ message: 'Data penyakit berhasil dihapus' });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal menghapus data penyakit' });
+  }
+});
+
+// --- FITUR LAPORAN LINGKUNGAN ---
+
+// Endpoint Buat Laporan Lingkungan (Khusus Pasien)
+app.post('/api/reports', verifyToken, async (req, res) => {
+  try {
+    const { title, description, address } = req.body;
+    const newReport = await EnvironmentReport.create({
+      patient_id: req.user.id,
+      title,
+      description,
+      address,
+      status: 'Menunggu'
+    });
+    res.status(201).json({ message: 'Laporan berhasil dikirim', report: newReport });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengirim laporan' });
+  }
+});
+
+// Endpoint Lihat Laporan
+app.get('/api/reports', verifyToken, async (req, res) => {
+  try {
+    let reports;
+    if (req.user.role === 'admin') {
+      reports = await EnvironmentReport.findAll(); 
+    } else {
+      reports = await EnvironmentReport.findAll({ where: { patient_id: req.user.id } });
+    }
+    res.json(reports);
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengambil data laporan' });
+  }
+});
+
+// Endpoint Update Status Laporan (Khusus Admin)
+app.put('/api/reports/:id/status', verifyToken, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Akses ditolak' });
+    const { status } = req.body;
+    await EnvironmentReport.update({ status }, { where: { id: req.params.id } });
+    res.json({ message: `Status laporan diubah menjadi ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mengubah status laporan' });
+  }
+});
+
+// Endpoint Hapus Laporan (Admin bebas hapus, Pasien hanya bisa hapus jika status Menunggu)
+app.delete('/api/reports/:id', verifyToken, async (req, res) => {
+  try {
+    const report = await EnvironmentReport.findByPk(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Laporan tidak ditemukan' });
+
+    // Cek hak akses
+    if (req.user.role === 'patient' && (report.patient_id !== req.user.id || report.status !== 'Menunggu')) {
+      return res.status(403).json({ error: 'Hanya bisa menghapus laporan yang masih menunggu' });
+    }
+
+    await report.destroy();
+    res.json({ message: 'Laporan berhasil dihapus' });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal menghapus laporan' });
   }
 });
 

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Upload, FileText, LogOut, Clock, CheckCircle, XCircle, Activity, Trash2 } from 'lucide-react';
 import api from '../api';
+import DiseaseSection from '../components/DiseaseSection';
+import ReportSection from '../components/ReportSection';
 
 export default function PatientDashboard() {
   const [bookings, setBookings] = useState([]);
@@ -218,6 +220,9 @@ export default function PatientDashboard() {
           </div>
         </div>
       </div>
+      {/* Tambahkan tepat di bawah tabel riwayat booking */}
+      <DiseaseSection role="patient" />
+      <ReportSection role="patient" />
     </div>
   );
 }

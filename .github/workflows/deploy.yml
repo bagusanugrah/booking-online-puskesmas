@@ -19,7 +19,7 @@ jobs:
           # Kita lempar variabel VITE_API_URL dari GitHub Secrets ke dalam script
           envs: VITE_API_URL
           script: |
-            cd /booking-online-puskesmas
+            cd booking-online-puskesmas
             git pull origin main
             
             # --- BAGIAN AJAIB: Membuat .env secara otomatis ---
@@ -45,8 +45,7 @@ jobs:
           proxy_username: ${{ secrets.USERNAME }}
           proxy_key: ${{ secrets.GCP_SSH_KEY }}
           script: |
-            cd /booking-online-puskesmas
+            cd booking-online-puskesmas
             git pull origin main
             sudo docker-compose down
             sudo docker-compose up -d --build backend
-            

@@ -10,7 +10,7 @@ services:
       - DB_USER=root
       - DB_PASSWORD=
       - DB_NAME=puskesmas_db
-      - ADMIN_USERNAME=admin
+      - ADMIN_USERNAME=gmail@admin.com
       - ADMIN_PASSWORD=admin123
       - JWT_SECRET=rahasia_puskesmas_super_aman
       # Kredensial Cloud/S3 kamu:
